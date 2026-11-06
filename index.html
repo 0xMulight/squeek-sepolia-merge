@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Squeek Merge · Sepolia</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 20px; background: #121216; color: #f2f2f5; max-width: 520px; margin-inline: auto; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    p, li { color: #b8b8c2; font-size: 0.95rem; line-height: 1.45; }
+    .card { background: #1c1c24; border: 1px solid #2e2e3a; border-radius: 14px; padding: 16px; margin: 14px 0; }
+    button { width: 100%; border: 0; border-radius: 12px; padding: 14px 16px; font-size: 1rem; font-weight: 650; cursor: pointer; margin-top: 10px; }
+    .primary { background: #6d5cff; color: white; }
+    .primary:disabled { opacity: .45; cursor: not-allowed; }
+    .quiet { background: #2a2a35; color: #eee; }
+    .ok { color: #7dffb3; }
+    .err { color: #ff8f8f; }
+    code { font-size: .85rem; word-break: break-all; }
+    .mono { font-family: ui-monospace, monospace; font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <h1>Squeek 一键合成（Sepolia）</h1>
+  <p>合约 <code>0xC4C798…856B</code>。donor 会永久烧掉，确认后再点。</p>
+
+  <div class="card">
+    <div class="mono" id="status">未连接</div>
+    <button class="quiet" id="connectBtn" type="button">1. 连接 OKX / 钱包</button>
+  </div>
+
+  <div class="card">
+    <p><b>第 1 笔</b>：留 #5427，烧 #5428 → Level 2</p>
+    <button class="primary" id="m1" type="button" disabled>合成 5427 ← 烧 5428</button>
+    <div class="mono" id="r1"></div>
+  </div>
+
+  <div class="card">
+    <p><b>第 2 笔</b>：留 #5429，烧 #5430 → Level 2</p>
+    <button class="primary" id="m2" type="button" disabled>合成 5429 ← 烧 5430</button>
+    <div class="mono" id="r2"></div>
+  </div>
+
+  <p>网络必须是 Sepolia（chainId 11155111）。账户用 <code>0x5d1f133E2717Ea07B001A20b0aDBD3d05175a060</code>。</p>
+
+<script>
+const NFT = "0xC4C7982657f00509548F3a3a41db7FA439a6856B";
+const CHAIN = "0xaa36a7"; // 11155111
+const EXPECTED = "0x5d1f133e2717ea07b001a20b0adbd3d05175a060";
+const pairs = [
+  { survivor: 5427n, donor: 5428n, btn: "m1", out: "r1" },
+  { survivor: 5429n, donor: 5430n, btn: "m2", out: "r2" },
+];
+
+function eth() {
+  return window.okxwallet?.ethereum || window.ethereum;
+}
+
+function encodeMerge(survivor, donor) {
+  const sel = "d1c2babb";
+  const a = survivor.toString(16).padStart(64, "0");
+  const b = donor.toString(16).padStart(64, "0");
+  return "0x" + sel + a + b;
+}
+
+async function ensureSepolia(provider) {
+  const id = await provider.request({ method: "eth_chainId" });
+  if (id.toLowerCase() === CHAIN) return;
+  try {
+    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN }] });
+  } catch (e) {
+    if (e?.code === 4902) {
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: CHAIN,
+          chainName: "Sepolia",
+          nativeCurrency: { name: "SepoliaETH", symbol: "ETH", decimals: 18 },
+          rpcUrls: ["https://ethereum-sepolia.publicnode.com"],
+          blockExplorerUrls: ["https://sepolia.etherscan.io"],
+        }],
+      });
+    } else throw e;
+  }
+}
+
+async function connect() {
+  const provider = eth();
+  if (!provider) throw new Error("没检测到钱包。请用 OKX App 内置浏览器打开本页。");
+  await ensureSepolia(provider);
+  const accounts = await provider.request({ method: "eth_requestAccounts" });
+  const acc = (accounts[0] || "").toLowerCase();
+  document.getElementById("status").textContent =
+    "已连接 " + accounts[0] + (acc === EXPECTED ? " ✅" : " ⚠️ 不是预期地址 0x5d1f…a060");
+  document.getElementById("m1").disabled = false;
+  document.getElementById("m2").disabled = false;
+  return accounts[0];
+}
+
+async function mergeOne(p) {
+  const provider = eth();
+  const out = document.getElementById(p.out);
+  out.className = "mono";
+  out.textContent = "请求签名中…";
+  try {
+    await ensureSepolia(provider);
+    const accounts = await provider.request({ method: "eth_requestAccounts" });
+    const from = accounts[0];
+    const data = encodeMerge(p.survivor, p.donor);
+    const txHash = await provider.request({
+      method: "eth_sendTransaction",
+      params: [{ from, to: NFT, value: "0x0", data }],
+    });
+    out.className = "mono ok";
+    out.innerHTML = "已发送：<a href='https://sepolia.etherscan.io/tx/" + txHash + "' target='_blank' rel='noreferrer'>" + txHash + "</a>";
+  } catch (e) {
+    out.className = "mono err";
+    out.textContent = e?.message || String(e);
+  }
+}
+
+document.getElementById("connectBtn").onclick = () => connect().catch(e => {
+  document.getElementById("status").className = "mono err";
+  document.getElementById("status").textContent = e.message || String(e);
+});
+pairs.forEach(p => {
+  document.getElementById(p.btn).onclick = () => mergeOne(p);
+});
+</script>
+</body>
+</html>
