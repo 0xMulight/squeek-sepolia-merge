@@ -3,86 +3,95 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Squeek Merge · Sepolia</title>
+  <title>Squeek Merge + Stake · Sepolia</title>
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
     body { margin: 0; padding: 20px; background: #121216; color: #f2f2f5; max-width: 560px; margin-inline: auto; }
-    h1 { font-size: 1.3rem; margin: 0 0 8px; }
+    h1 { font-size: 1.25rem; margin: 0 0 6px; }
+    h2 { font-size: 1.05rem; margin: 0 0 8px; }
     p, li { color: #b8b8c2; font-size: 0.95rem; line-height: 1.45; }
     .card { background: #1c1c24; border: 1px solid #2e2e3a; border-radius: 14px; padding: 16px; margin: 14px 0; }
-    label { display:block; font-size:.85rem; color:#9a9aa8; margin:10px 0 4px; }
-    input { width:100%; box-sizing:border-box; border-radius:10px; border:1px solid #3a3a48; background:#101016; color:#fff; padding:12px; font-size:1rem; }
     button { width: 100%; border: 0; border-radius: 12px; padding: 14px 16px; font-size: 1rem; font-weight: 650; cursor: pointer; margin-top: 10px; }
     .primary { background: #6d5cff; color: white; }
-    .primary:disabled { opacity: .45; cursor: not-allowed; }
+    .primary:disabled, .quiet:disabled { opacity: .45; cursor: not-allowed; }
     .quiet { background: #2a2a35; color: #eee; }
     .ok { color: #7dffb3; }
     .err { color: #ff8f8f; }
     code { font-size: .85rem; word-break: break-all; }
-    .mono { font-family: ui-monospace, monospace; font-size: .85rem; }
-    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .mono { font-family: ui-monospace, monospace; font-size: .85rem; white-space: pre-wrap; }
+    .row { display: flex; gap: 8px; }
+    .row button { flex: 1; }
+    label { display: block; margin-top: 8px; color: #b8b8c2; font-size: .9rem; }
+    input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 10px 12px; border-radius: 10px; border: 1px solid #2e2e3a; background: #121216; color: #fff; font-size: 1rem; }
   </style>
 </head>
 <body>
-  <h1>Squeek 一键合成（Sepolia）</h1>
-  <p>公开工具页。调用 <code>SqueekNFT.merge(survivor, donor)</code>。donor 永久烧掉，任何人用自己的钱包签。</p>
+  <h1>Squeek 合成 + 质押（Sepolia）</h1>
+  <p>只调官方合约：NFT <code>0xC4C798…856B</code>、质押 <code>0x50fd…11ca</code>。金额一律 0。</p>
 
   <div class="card">
     <div class="mono" id="status">未连接</div>
-    <button class="quiet" id="connectBtn" type="button">连接钱包（OKX / MetaMask）</button>
+    <button class="quiet" id="connectBtn" type="button">连接 OKX / 钱包</button>
+    <div class="mono" id="owners" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
+    <h2>合成 Merge</h2>
+    <p>同等级两只：留下 survivor，烧掉 donor。刚升到 L2 有冷却，冷却内会失败。</p>
+    <label>留下 survivor ID<input id="survivor" type="number" value="5427" /></label>
+    <label>烧掉 donor ID<input id="donor" type="number" value="5428" /></label>
     <div class="row">
-      <div>
-        <label>留下的 survivor ID</label>
-        <input id="survivor" type="number" min="1" value="5427" />
-      </div>
-      <div>
-        <label>烧掉的 donor ID</label>
-        <input id="donor" type="number" min="1" value="5428" />
-      </div>
+      <button class="quiet" id="q1" type="button" disabled>快捷 5427←5428</button>
+      <button class="quiet" id="q2" type="button" disabled>快捷 5429←5430</button>
     </div>
-    <button class="primary" id="mergeBtn" type="button" disabled>合成（merge）</button>
-    <div class="mono" id="result"></div>
+    <button class="primary" id="mergeBtn" type="button" disabled>执行合成</button>
+    <div class="mono" id="rMerge"></div>
   </div>
 
   <div class="card">
-    <p style="margin:0 0 8px"><b>快捷填你的两笔</b></p>
-    <button class="quiet" id="pair1" type="button">填 5427 / 5428</button>
-    <button class="quiet" id="pair2" type="button">填 5429 / 5430</button>
+    <h2>质押 Stake</h2>
+    <p>授权状态：<span class="mono" id="appr">—</span></p>
+    <button class="quiet" id="approveBtn" type="button" disabled>授权质押合约（已授权可跳过）</button>
+    <div class="mono" id="rAppr"></div>
+    <button class="primary" id="depBoth" type="button" disabled>质押 #5427 + #5429</button>
+    <div class="row">
+      <button class="quiet" id="dep1" type="button" disabled>只质押 #5427</button>
+      <button class="quiet" id="dep2" type="button" disabled>只质押 #5429</button>
+    </div>
+    <label>自定义 ID（逗号分隔）<input id="customIds" type="text" placeholder="例如 5427,5429" /></label>
+    <button class="quiet" id="depCustom" type="button" disabled>质押自定义 ID</button>
+    <div class="mono" id="rStake"></div>
   </div>
-
-  <p>合约 <code>0xC4C7982657f00509548F3a3a41db7FA439a6856B</code> · 网络 Sepolia · chainId 11155111</p>
-  <p>源码：<a href="https://github.com/0xMulight/squeek-sepolia-merge" style="color:#9db7ff">github.com/0xMulight/squeek-sepolia-merge</a></p>
 
 <script>
 const NFT = "0xC4C7982657f00509548F3a3a41db7FA439a6856B";
+const STAKING = "0x50fd1780526C3186A0c037c7622203bC4fb611ca";
 const CHAIN = "0xaa36a7";
+const TRACK = [5427n, 5429n];
 
-function eth() {
-  return window.okxwallet?.ethereum || window.ethereum;
+function eth() { return window.okxwallet?.ethereum || window.ethereum; }
+function pad32(hex) { return String(hex).replace(/^0x/, "").toLowerCase().padStart(64, "0"); }
+function encodeMerge(s, d) { return "0xd1c2babb" + pad32(BigInt(s).toString(16)) + pad32(BigInt(d).toString(16)); }
+function encodeApproveAll(op, on) { return "0xa22cb465" + pad32(op) + pad32(on ? "01" : "00"); }
+function encodeDeposit(ids) {
+  let data = "0xa71604e8" + pad32(NFT) + pad32("40") + pad32(ids.length.toString(16));
+  for (const id of ids) data += pad32(BigInt(id).toString(16));
+  return data;
 }
+function encodeOwnerOf(id) { return "0x6352211e" + pad32(BigInt(id).toString(16)); }
+function encodeIsApprovedForAll(owner) { return "0xe985e9c5" + pad32(owner) + pad32(STAKING); }
 
-function encodeMerge(survivor, donor) {
-  const sel = "d1c2babb";
-  const a = BigInt(survivor).toString(16).padStart(64, "0");
-  const b = BigInt(donor).toString(16).padStart(64, "0");
-  return "0x" + sel + a + b;
-}
-
-async function ensureSepolia(provider) {
-  const id = await provider.request({ method: "eth_chainId" });
+async function ensureSepolia(p) {
+  const id = await p.request({ method: "eth_chainId" });
   if (id.toLowerCase() === CHAIN) return;
   try {
-    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN }] });
+    await p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN }] });
   } catch (e) {
     if (e?.code === 4902) {
-      await provider.request({
+      await p.request({
         method: "wallet_addEthereumChain",
         params: [{
-          chainId: CHAIN,
-          chainName: "Sepolia",
+          chainId: CHAIN, chainName: "Sepolia",
           nativeCurrency: { name: "SepoliaETH", symbol: "ETH", decimals: 18 },
           rpcUrls: ["https://ethereum-sepolia.publicnode.com"],
           blockExplorerUrls: ["https://sepolia.etherscan.io"],
@@ -92,53 +101,90 @@ async function ensureSepolia(provider) {
   }
 }
 
-async function connect() {
-  const provider = eth();
-  if (!provider) throw new Error("没检测到钱包插件。请用已安装 OKX / MetaMask 的浏览器打开。");
-  await ensureSepolia(provider);
-  const accounts = await provider.request({ method: "eth_requestAccounts" });
-  document.getElementById("status").className = "mono ok";
-  document.getElementById("status").textContent = "已连接 " + accounts[0];
-  document.getElementById("mergeBtn").disabled = false;
-  return accounts[0];
+let account = null;
+function setEnabled(on) {
+  ["q1","q2","mergeBtn","approveBtn","depBoth","dep1","dep2","depCustom"].forEach(id => {
+    document.getElementById(id).disabled = !on;
+  });
 }
 
-async function merge() {
-  const provider = eth();
-  const out = document.getElementById("result");
-  const survivor = document.getElementById("survivor").value.trim();
-  const donor = document.getElementById("donor").value.trim();
-  out.className = "mono";
-  if (!survivor || !donor || survivor === donor) {
-    out.className = "mono err";
-    out.textContent = "请填写两个不同的 token ID";
+async function refresh() {
+  const p = eth();
+  if (!p || !account) return;
+  const appr = await p.request({ method: "eth_call", params: [{ to: NFT, data: encodeIsApprovedForAll(account) }, "latest"] });
+  const ok = BigInt(appr) === 1n;
+  const el = document.getElementById("appr");
+  el.textContent = ok ? "已授权 ✅" : "未授权";
+  el.className = ok ? "mono ok" : "mono err";
+  const lines = [];
+  for (const id of TRACK) {
+    try {
+      const own = await p.request({ method: "eth_call", params: [{ to: NFT, data: encodeOwnerOf(id) }, "latest"] });
+      const addr = ("0x" + own.slice(-40)).toLowerCase();
+      let where = "在别处 " + addr;
+      if (addr === STAKING.toLowerCase()) where = "已在质押合约";
+      else if (addr === account.toLowerCase()) where = "在你钱包";
+      lines.push("#" + id + " → " + where);
+    } catch {
+      lines.push("#" + id + " → 读不到（可能已烧掉）");
+    }
+  }
+  document.getElementById("owners").textContent = lines.join("\n");
+}
+
+async function connect() {
+  const p = eth();
+  if (!p) {
+    document.getElementById("status").textContent = "没找到钱包，请用 OKX / MetaMask 打开";
+    document.getElementById("status").className = "mono err";
     return;
   }
-  out.textContent = "请求签名中…";
+  await ensureSepolia(p);
+  account = (await p.request({ method: "eth_requestAccounts" }))[0];
+  document.getElementById("status").textContent = "已连接 " + account;
+  document.getElementById("status").className = "mono ok";
+  setEnabled(true);
+  await refresh();
+}
+
+async function send(to, data, outId) {
+  const out = document.getElementById(outId);
   try {
-    await ensureSepolia(provider);
-    const accounts = await provider.request({ method: "eth_requestAccounts" });
-    const from = accounts[0];
-    const data = encodeMerge(survivor, donor);
-    const txHash = await provider.request({
+    out.textContent = "等待钱包确认…";
+    out.className = "mono";
+    const p = eth();
+    await ensureSepolia(p);
+    const hash = await p.request({
       method: "eth_sendTransaction",
-      params: [{ from, to: NFT, value: "0x0", data }],
+      params: [{ from: account, to, data, value: "0x0" }],
     });
+    out.textContent = "已发出 " + hash;
     out.className = "mono ok";
-    out.innerHTML = "已发送：<a href='https://sepolia.etherscan.io/tx/" + txHash + "' target='_blank' rel='noreferrer'>" + txHash + "</a>";
+    setTimeout(refresh, 4000);
   } catch (e) {
-    out.className = "mono err";
     out.textContent = e?.message || String(e);
+    out.className = "mono err";
   }
 }
 
-document.getElementById("connectBtn").onclick = () => connect().catch(e => {
-  document.getElementById("status").className = "mono err";
-  document.getElementById("status").textContent = e.message || String(e);
-});
-document.getElementById("mergeBtn").onclick = () => merge();
-document.getElementById("pair1").onclick = () => { survivor.value = 5427; donor.value = 5428; };
-document.getElementById("pair2").onclick = () => { survivor.value = 5429; donor.value = 5430; };
+document.getElementById("connectBtn").onclick = connect;
+document.getElementById("q1").onclick = () => { survivor.value = 5427; donor.value = 5428; };
+document.getElementById("q2").onclick = () => { survivor.value = 5429; donor.value = 5430; };
+document.getElementById("mergeBtn").onclick = () =>
+  send(NFT, encodeMerge(survivor.value, donor.value), "rMerge");
+document.getElementById("approveBtn").onclick = () =>
+  send(NFT, encodeApproveAll(STAKING, true), "rAppr");
+document.getElementById("depBoth").onclick = () =>
+  send(STAKING, encodeDeposit([5427n, 5429n]), "rStake");
+document.getElementById("dep1").onclick = () =>
+  send(STAKING, encodeDeposit([5427n]), "rStake");
+document.getElementById("dep2").onclick = () =>
+  send(STAKING, encodeDeposit([5429n]), "rStake");
+document.getElementById("depCustom").onclick = () => {
+  const ids = customIds.value.split(/[,\s]+/).filter(Boolean).map(x => BigInt(x.trim()));
+  if (!ids.length) { rStake.textContent = "先填 ID"; rStake.className = "mono err"; return; }
+  send(STAKING, encodeDeposit(ids), "rStake");
+};
 </script>
 </body>
 </html>
