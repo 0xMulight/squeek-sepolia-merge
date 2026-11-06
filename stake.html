@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Squeek Stake · Sepolia</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 20px; background: #121216; color: #f2f2f5; max-width: 520px; margin-inline: auto; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    p, li { color: #b8b8c2; font-size: 0.95rem; line-height: 1.45; }
+    .card { background: #1c1c24; border: 1px solid #2e2e3a; border-radius: 14px; padding: 16px; margin: 14px 0; }
+    button { width: 100%; border: 0; border-radius: 12px; padding: 14px 16px; font-size: 1rem; font-weight: 650; cursor: pointer; margin-top: 10px; }
+    .primary { background: #6d5cff; color: white; }
+    .primary:disabled { opacity: .45; cursor: not-allowed; }
+    .quiet { background: #2a2a35; color: #eee; }
+    .ok { color: #7dffb3; }
+    .err { color: #ff8f8f; }
+    code { font-size: .85rem; word-break: break-all; }
+    .mono { font-family: ui-monospace, monospace; font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <h1>Squeek 一键质押（Sepolia）</h1>
+  <p>把 NFT 存进官方质押合约 <code>0x50fd…11ca</code>。只调 <code>deposit</code>，金额 0，不解押别人资产。</p>
+
+  <div class="card">
+    <div class="mono" id="status">未连接</div>
+    <button class="quiet" id="connectBtn" type="button">1. 连接 OKX / 钱包</button>
+  </div>
+
+  <div class="card">
+    <p>授权状态：<span class="mono" id="appr">检测中…</span></p>
+    <button class="quiet" id="approveBtn" type="button" disabled>2. 授权质押合约（如已授权可跳过）</button>
+    <div class="mono" id="rAppr"></div>
+  </div>
+
+  <div class="card">
+    <p>一次存入 <b>#5427</b> + <b>#5429</b>（Level 2）</p>
+    <button class="primary" id="depBoth" type="button" disabled>3. 质押两枚</button>
+    <div class="mono" id="rBoth"></div>
+  </div>
+
+  <div class="card">
+    <button class="quiet" id="dep1" type="button" disabled>只质押 #5427</button>
+    <button class="quiet" id="dep2" type="button" disabled>只质押 #5429</button>
+    <div class="mono" id="rOne"></div>
+  </div>
+
+  <p>网络必须是 Sepolia。钱包弹窗里核对：<code>to</code> 是质押合约，金额为 0。</p>
+  <p class="mono" id="owners"></p>
+
+<script>
+const NFT = "0xC4C7982657f00509548F3a3a41db7FA439a6856B";
+const STAKING = "0x50fd1780526C3186A0c037c7622203bC4fb611ca";
+const CHAIN = "0xaa36a7";
+const IDS = [5427n, 5429n];
+
+function eth() {
+  return window.okxwallet?.ethereum || window.ethereum;
+}
+function pad32(hex) {
+  return hex.replace(/^0x/, "").toLowerCase().padStart(64, "0");
+}
+function encodeApproveAll(operator, approved) {
+  // setApprovalForAll(address,bool) 0xa22cb465
+  return "0xa22cb465" + pad32(operator) + pad32(approved ? "01" : "00");
+}
+function encodeDeposit(ids) {
+  // deposit(address,uint256[]) 0xa71604e8
+  let data = "0xa71604e8" + pad32(NFT) + pad32("40");
+  data += pad32(ids.length.toString(16));
+  for (const id of ids) data += pad32(id.toString(16));
+  return data;
+}
+function encodeOwnerOf(id) {
+  return "0x6352211e" + pad32(id.toString(16));
+}
+function encodeIsApprovedForAll(owner) {
+  return "0xe985e9c5" + pad32(owner) + pad32(STAKING);
+}
+
+async function ensureSepolia(provider) {
+  const id = await provider.request({ method: "eth_chainId" });
+  if (id.toLowerCase() === CHAIN) return;
+  try {
+    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN }] });
+  } catch (e) {
+    if (e?.code === 4902) {
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: CHAIN,
+          chainName: "Sepolia",
+          nativeCurrency: { name: "SepoliaETH", symbol: "ETH", decimals: 18 },
+          rpcUrls: ["https://ethereum-sepolia.publicnode.com"],
+          blockExplorerUrls: ["https://sepolia.etherscan.io"],
+        }],
+      });
+    } else throw e;
+  }
+}
+
+let account = null;
+
+async function refresh() {
+  const p = eth();
+  if (!p || !account) return;
+  const appr = await p.request({ method: "eth_call", params: [{ to: NFT, data: encodeIsApprovedForAll(account) }, "latest"] });
+  const ok = BigInt(appr) === 1n;
+  document.getElementById("appr").textContent = ok ? "已授权 ✅" : "未授权";
+  document.getElementById("appr").className = ok ? "mono ok" : "mono err";
+  const lines = [];
+  for (const id of IDS) {
+    const own = await p.request({ method: "eth_call", params: [{ to: NFT, data: encodeOwnerOf(id) }, "latest"] });
+    const addr = "0x" + own.slice(-40);
+    const where = addr.toLowerCase() === STAKING.toLowerCase() ? "已在质押合约" :
+      addr.toLowerCase() === account.toLowerCase() ? "在你钱包" : "在别处 " + addr;
+    lines.push("#" + id + " → " + where);
+  }
+  document.getElementById("owners").textContent = lines.join("\n");
+}
+
+async function connect() {
+  const p = eth();
+  if (!p) {
+    document.getElementById("status").textContent = "没找到钱包，请用 OKX / MetaMask 浏览器打开";
+    document.getElementById("status").className = "mono err";
+    return;
+  }
+  await ensureSepolia(p);
+  const accs = await p.request({ method: "eth_requestAccounts" });
+  account = accs[0];
+  document.getElementById("status").textContent = "已连接 " + account;
+  document.getElementById("status").className = "mono ok";
+  ["approveBtn","depBoth","dep1","dep2"].forEach(id => document.getElementById(id).disabled = false);
+  await refresh();
+}
+
+async function send(to, data, outId) {
+  const out = document.getElementById(outId);
+  try {
+    out.textContent = "等待钱包确认…";
+    out.className = "mono";
+    const p = eth();
+    await ensureSepolia(p);
+    const hash = await p.request({
+      method: "eth_sendTransaction",
+      params: [{ from: account, to, data, value: "0x0" }],
+    });
+    out.textContent = "已发出 " + hash;
+    out.className = "mono ok";
+    setTimeout(refresh, 4000);
+  } catch (e) {
+    out.textContent = e?.message || String(e);
+    out.className = "mono err";
+  }
+}
+
+document.getElementById("connectBtn").onclick = connect;
+document.getElementById("approveBtn").onclick = () => send(NFT, encodeApproveAll(STAKING, true), "rAppr");
+document.getElementById("depBoth").onclick = () => send(STAKING, encodeDeposit(IDS), "rBoth");
+document.getElementById("dep1").onclick = () => send(STAKING, encodeDeposit([5427n]), "rOne");
+document.getElementById("dep2").onclick = () => send(STAKING, encodeDeposit([5429n]), "rOne");
+</script>
+</body>
+</html>

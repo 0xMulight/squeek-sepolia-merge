@@ -45,3 +45,9 @@
 ## 免责
 
 这是社区便利页，不是 Squeekchain 官方产品。合约规则以 [Squeekchain Docs](https://docs.squeekchain.com/) 为准。用前自己核对合约地址与钱包弹窗。
+
+## Stake
+
+One-click deposit page (Sepolia): [stake.html](./stake.html) · live: https://0xmulight.github.io/squeek-sepolia-merge/stake.html
+
+Calls only `SqueekStaking.deposit` / optional `setApprovalForAll` on the official NFT. No approve-unlimited ERC20, no ETH transfer.
